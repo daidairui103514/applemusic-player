@@ -4,6 +4,7 @@ import { PlayerBar } from './components/PlayerBar';
 import { LoginModal } from './components/LoginModal';
 import { SettingsModal } from './components/SettingsModal';
 import { PlayerProvider, usePlayer } from './store/PlayerContext';
+import { SettingsProvider } from './store/SettingsContext';
 import { neteaseService } from './services/neteaseService';
 import { Playlist, User, Track, ViewType } from './types';
 import { Play, Clock, ChevronRight, Music, Settings, UserCircle, ChevronLeft, AlertCircle } from 'lucide-react';
@@ -61,9 +62,14 @@ const TrackList = ({ tracks, onPlay }: { tracks: Track[], onPlay: (track: Track)
             <div 
                 key={track.id}
                 onDoubleClick={() => onPlay(track)}
-                className="grid grid-cols-[auto_1fr_1fr_auto] gap-4 px-4 py-3 hover:bg-white/5 rounded-lg group transition-colors cursor-default text-sm text-white/80 items-center"
+                className="grid grid-cols-[auto_1fr_1fr_auto] gap-4 px-4 py-3 hover:bg-white/5 rounded-lg group transition-colors cursor-default text-sm text-white/80 items-center select-none"
             >
-                <span className="w-8 text-center text-white/40 group-hover:text-white font-mono">{i + 1}</span>
+                {/* Index / Play Button Area */}
+                <div className="w-8 flex items-center justify-center" onClick={() => onPlay(track)}>
+                    <span className="text-white/40 font-mono group-hover:hidden">{i + 1}</span>
+                    <Play className="w-4 h-4 hidden group-hover:block text-white fill-current cursor-pointer" />
+                </div>
+                
                 <div className="flex items-center gap-4 overflow-hidden">
                     <div className="w-10 h-10 rounded object-cover bg-white/5 flex-shrink-0 flex items-center justify-center overflow-hidden">
                         {track.al?.picUrl ? (
@@ -641,9 +647,11 @@ const AppContent = () => {
 
 const App = () => {
   return (
-    <PlayerProvider>
-      <AppContent />
-    </PlayerProvider>
+    <SettingsProvider>
+      <PlayerProvider>
+        <AppContent />
+      </PlayerProvider>
+    </SettingsProvider>
   );
 };
 

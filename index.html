@@ -38,6 +38,14 @@
         backdrop-filter: blur(10px);
         border: 1px solid rgba(255, 255, 255, 0.05);
       }
+      /* Utility to hide scrollbars but allow scrolling */
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
       input[type=range] {
         -webkit-appearance: none;
         background: transparent;

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Volume2, ChevronDown, Quote, ListMusic, Music, MoreHorizontal } from 'lucide-react';
 import { Track, LyricLine } from '../types';
 import { neteaseService } from '../services/neteaseService';
+import { useSettings } from '../store/SettingsContext';
 
 interface FullScreenPlayerProps {
   currentTrack: Track;
@@ -41,6 +42,7 @@ export const FullScreenPlayer = ({
   onSeek,
   onVolumeChange
 }: FullScreenPlayerProps) => {
+  const { lyricSize, blurLevel, enableMotion } = useSettings();
   const [showLyrics, setShowLyrics] = useState(false);
   const [lyrics, setLyrics] = useState<LyricLine[]>([]);
   const [isLoadingLyrics, setIsLoadingLyrics] = useState(false);
@@ -100,8 +102,25 @@ export const FullScreenPlayer = ({
   const picUrl = currentTrack.al?.picUrl;
   const artistName = currentTrack.ar?.map(a => a.name).join(', ') || "未知艺术家";
 
-  // If not mounted (hidden), we still render it but translate it out of view for animation
-  // The 'invisible' class helps performance when fully closed
+  // Dynamic Styles based on Settings
+  const blurClass = blurLevel === 'low' ? 'blur-[40px]' : blurLevel === 'medium' ? 'blur-[80px]' : 'blur-[120px]';
+  
+  const getLyricActiveSize = () => {
+     switch(lyricSize) {
+         case 'small': return 'text-2xl md:text-3xl';
+         case 'large': return 'text-4xl md:text-5xl';
+         default: return 'text-3xl md:text-4xl';
+     }
+  };
+
+  const getLyricInactiveSize = () => {
+    switch(lyricSize) {
+        case 'small': return 'text-base md:text-xl';
+        case 'large': return 'text-xl md:text-3xl';
+        default: return 'text-lg md:text-2xl';
+    }
+  };
+
   const containerClass = isOpen 
     ? "translate-y-0 opacity-100 pointer-events-auto" 
     : "translate-y-[100vh] opacity-0 pointer-events-none";
@@ -111,7 +130,6 @@ export const FullScreenPlayer = ({
       
       {/* 1. Dynamic Background Layer */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-         {/* Layer 1: Deep Blur Base */}
          <div className="absolute inset-0 bg-[#1c1c1e]" />
          {picUrl && (
             <>
@@ -119,11 +137,10 @@ export const FullScreenPlayer = ({
                 <div className="absolute inset-0 flex items-center justify-center opacity-60">
                     <img 
                         src={picUrl} 
-                        className="w-[120%] h-[120%] object-cover blur-[100px] saturate-[2] animate-pulse-slow" 
+                        className={`w-[120%] h-[120%] object-cover saturate-[2] ${blurClass} ${enableMotion ? 'animate-pulse-slow' : ''}`} 
                         alt=""
                     />
                 </div>
-                {/* Layer 3: Noise Texture for that premium feel (Optional) */}
                 <div className="absolute inset-0 opacity-[0.03] bg-[url('https://grainy-gradients.vercel.app/noise.svg')]"></div>
             </>
          )}
@@ -175,10 +192,11 @@ export const FullScreenPlayer = ({
         {showLyrics && (
            <div 
                 ref={lyricContainerRef}
-                className="w-full md:w-[60%] h-full overflow-y-auto custom-scrollbar flex flex-col gap-6 text-left px-4 py-[50%] md:py-32 mask-image-b transition-all duration-500"
+                className="w-full md:w-[60%] h-full overflow-y-auto no-scrollbar flex flex-col gap-6 text-left px-4 py-[50%] md:py-32 mask-image-b transition-all duration-500"
                 style={{
-                    maskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)',
-                    WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)'
+                    // Use a softer gradient for the mask to avoid abrupt cut-offs
+                    maskImage: 'linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%)',
+                    WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%)'
                 }}
            >
               {isLoadingLyrics ? (
@@ -190,8 +208,8 @@ export const FullScreenPlayer = ({
                     key={i} 
                     className={`transition-all duration-500 ease-out cursor-pointer origin-left
                         ${i === activeLyricIndex 
-                            ? 'text-white text-3xl md:text-4xl font-bold opacity-100 scale-105 filter-none shadow-lg' 
-                            : 'text-white/40 text-lg md:text-2xl font-medium blur-[0.5px] hover:text-white/70 hover:blur-none'
+                            ? `${getLyricActiveSize()} text-white font-bold opacity-100 scale-105 filter-none shadow-lg` 
+                            : `${getLyricInactiveSize()} text-white/40 font-medium blur-[0.5px] hover:text-white/70 hover:blur-none`
                         }
                     `}
                     onClick={() => onSeek(line.time)}

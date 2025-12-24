@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { X, Server, CheckCircle2, AlertTriangle, Loader2, Type, Info, Sliders } from 'lucide-react';
+import { X, Server, CheckCircle2, AlertTriangle, Loader2, Type, Info, Sliders, Activity, Droplets } from 'lucide-react';
 import { neteaseService } from '../services/neteaseService';
+import { useSettings, LyricSize, BlurLevel } from '../store/SettingsContext';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -10,15 +11,13 @@ interface SettingsModalProps {
 type Tab = 'general' | 'api' | 'about';
 
 export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
-  const [activeTab, setActiveTab] = useState<Tab>('api');
+  const [activeTab, setActiveTab] = useState<Tab>('general');
+  const { lyricSize, setLyricSize, blurLevel, setBlurLevel, enableMotion, setEnableMotion } = useSettings();
   
   // API State
   const [url, setUrl] = useState(neteaseService.getApiUrl());
   const [status, setStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
-
-  // General State (Mock for now, normally would use Context)
-  const [lyricSize, setLyricSize] = useState('medium');
 
   if (!isOpen) return null;
 
@@ -68,7 +67,7 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-2xl bg-[#2c2c2e] rounded-xl shadow-2xl overflow-hidden border border-white/10 flex flex-col h-[500px]">
+      <div className="w-full max-w-2xl bg-[#2c2c2e] rounded-xl shadow-2xl overflow-hidden border border-white/10 flex flex-col h-[600px]">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-white/5">
             <h2 className="text-xl font-bold">设置</h2>
@@ -83,7 +82,7 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
         <div className="flex flex-1 overflow-hidden">
             {/* Sidebar Tabs */}
             <div className="w-48 bg-black/20 p-4 space-y-2 border-r border-white/5 flex flex-col">
-                <TabButton id="general" label="通用设置" icon={Sliders} />
+                <TabButton id="general" label="播放界面" icon={Sliders} />
                 <TabButton id="api" label="API 服务" icon={Server} />
                 <TabButton id="about" label="关于" icon={Info} />
             </div>
@@ -138,26 +137,70 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
                 )}
 
                 {activeTab === 'general' && (
-                    <div className="space-y-6">
-                        <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
-                            <Type className="w-5 h-5 text-rose-500" />
-                            显示设置
-                        </h3>
-                        
-                        <div className="p-4 bg-white/5 rounded-lg border border-white/5">
-                            <label className="block text-sm font-medium text-white mb-3">歌词字体大小</label>
-                            <div className="flex gap-4">
-                                {['small', 'medium', 'large'].map((size) => (
-                                    <button
-                                        key={size}
-                                        onClick={() => setLyricSize(size)}
-                                        className={`px-4 py-2 rounded border text-xs capitalize transition-colors ${lyricSize === size ? 'bg-rose-500 border-rose-500 text-white' : 'border-white/10 hover:bg-white/10'}`}
+                    <div className="space-y-8">
+                        <div>
+                            <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+                                <Sliders className="w-5 h-5 text-rose-500" />
+                                界面偏好设置
+                            </h3>
+                            
+                            <div className="space-y-6">
+                                {/* Lyric Size */}
+                                <div className="p-4 bg-white/5 rounded-lg border border-white/5">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <Type className="w-4 h-4 text-white/60" />
+                                        <label className="text-sm font-medium text-white">歌词字体大小</label>
+                                    </div>
+                                    <div className="flex gap-3">
+                                        {(['small', 'medium', 'large'] as LyricSize[]).map((size) => (
+                                            <button
+                                                key={size}
+                                                onClick={() => setLyricSize(size)}
+                                                className={`flex-1 py-2 rounded border text-xs capitalize transition-colors ${lyricSize === size ? 'bg-rose-500 border-rose-500 text-white' : 'border-white/10 hover:bg-white/10 text-white/60'}`}
+                                            >
+                                                {size === 'small' ? '小' : size === 'medium' ? '中' : '大'}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Blur Level */}
+                                <div className="p-4 bg-white/5 rounded-lg border border-white/5">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <Droplets className="w-4 h-4 text-white/60" />
+                                        <label className="text-sm font-medium text-white">背景模糊程度</label>
+                                    </div>
+                                    <div className="flex gap-3">
+                                        {(['low', 'medium', 'high'] as BlurLevel[]).map((level) => (
+                                            <button
+                                                key={level}
+                                                onClick={() => setBlurLevel(level)}
+                                                className={`flex-1 py-2 rounded border text-xs capitalize transition-colors ${blurLevel === level ? 'bg-rose-500 border-rose-500 text-white' : 'border-white/10 hover:bg-white/10 text-white/60'}`}
+                                            >
+                                                {level === 'low' ? '低' : level === 'medium' ? '中' : '高'}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <p className="mt-2 text-[10px] text-white/30">降低模糊度可以提升旧设备的流畅度。</p>
+                                </div>
+
+                                {/* Motion */}
+                                <div className="p-4 bg-white/5 rounded-lg border border-white/5 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Activity className="w-4 h-4 text-white/60" />
+                                        <div>
+                                            <label className="block text-sm font-medium text-white">背景呼吸动画</label>
+                                            <p className="text-[10px] text-white/30">全屏播放页面的动态色彩效果</p>
+                                        </div>
+                                    </div>
+                                    <button 
+                                        onClick={() => setEnableMotion(!enableMotion)}
+                                        className={`w-12 h-6 rounded-full transition-colors relative ${enableMotion ? 'bg-rose-500' : 'bg-white/10'}`}
                                     >
-                                        {size}
+                                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${enableMotion ? 'left-7' : 'left-1'}`} />
                                     </button>
-                                ))}
+                                </div>
                             </div>
-                            <p className="mt-3 text-white/30 text-xs">调整全屏播放页面的歌词显示大小。</p>
                         </div>
                     </div>
                 )}
@@ -168,7 +211,7 @@ export const SettingsModal = ({ isOpen, onClose }: SettingsModalProps) => {
                             <Server className="w-8 h-8 text-white" />
                         </div>
                         <h2 className="text-2xl font-bold">Muse Music</h2>
-                        <p className="text-white/40">v1.0.2 Beta</p>
+                        <p className="text-white/40">v1.1.0</p>
                         <div className="pt-6 border-t border-white/5 w-full">
                             <p className="text-white/30 text-sm">
                                 Designed for Netease Cloud Music<br/>

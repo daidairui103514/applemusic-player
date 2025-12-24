@@ -185,15 +185,34 @@ class NeteaseService {
   }
 
   async getSongUrl(id: number): Promise<string> {
-    try {
-        // Standard endpoint
-        const data = await this.request(`/song/url?id=${id}`);
-        if (data.data?.[0]?.url) return data.data[0].url;
-    } catch (e) { /* ignore */ }
+    // Helper to process URL: Force HTTPS to avoid Mixed Content errors
+    const processUrl = (u: string) => {
+        if (!u) return "";
+        return u.replace(/^http:/, 'https:');
+    };
+
+    const fetchUrl = async (path: string) => {
+        try {
+            const res = await this.request(path);
+            const u = res.data?.[0]?.url;
+            return processUrl(u);
+        } catch (e) { return null; }
+    };
+
+    // Strategy: 
+    // 1. Try standard legacy endpoint (Most robust for non-VIP/search results)
+    let url = await fetchUrl(`/song/url?id=${id}`);
+    if (url) return url;
+
+    // 2. Try V1 standard (Newer API default)
+    url = await fetchUrl(`/song/url/v1?id=${id}&level=standard`);
+    if (url) return url;
+
+    // 3. Try V1 higher (Fallback)
+    url = await fetchUrl(`/song/url/v1?id=${id}&level=higher`);
+    if (url) return url;
     
-    // Fallback V1 endpoint (often needed for higher quality/unblock)
-    const dataV1 = await this.request(`/song/url/v1?id=${id}&level=exhigh`);
-    return dataV1.data?.[0]?.url || "";
+    return "";
   }
 
   async getSongDetail(ids: number[]): Promise<Track[]> {
