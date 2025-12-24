@@ -169,7 +169,8 @@ class NeteaseService {
 
   async getUserPlaylists(uid: number): Promise<Playlist[]> {
     if (!uid) return [];
-    const data = await this.request(`/user/playlist?uid=${uid}`);
+    // Increase limit to fetch all playlists for the sidebar
+    const data = await this.request(`/user/playlist?uid=${uid}&limit=1000`);
     return data.playlist || [];
   }
 

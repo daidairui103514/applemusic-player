@@ -26,7 +26,7 @@ export const PlayerBar = () => {
 
   const [isFullScreen, setIsFullScreen] = useState(false);
 
-  // FIX: Added fixed positioning classes to prevent flexbox layout breakage
+  // Still show the basic bar if track is loaded
   if (!currentTrack) {
     return (
       <div className="fixed bottom-0 left-0 z-50 h-24 w-full glass border-t border-white/5 flex items-center justify-center text-white/30 text-sm">
@@ -40,11 +40,14 @@ export const PlayerBar = () => {
 
   return (
     <>
-      <div className="h-24 w-full glass border-t border-white/10 flex items-center justify-between px-6 z-50 fixed bottom-0 left-0 transition-transform duration-300">
+      <div 
+        className="h-24 w-full glass border-t border-white/10 flex items-center justify-between px-6 z-50 fixed bottom-0 left-0 transition-transform duration-300"
+        style={{ transform: isFullScreen ? 'translateY(100%)' : 'translateY(0)' }} // Slide down when full screen is open
+      >
         
         {/* Track Info */}
         <div className="flex items-center gap-4 w-1/4 group cursor-pointer" onClick={() => setIsFullScreen(true)}>
-          <div className="w-14 h-14 rounded-md overflow-hidden shadow-lg relative bg-white/10 flex items-center justify-center">
+          <div className="w-14 h-14 rounded-md overflow-hidden shadow-lg relative bg-white/10 flex items-center justify-center group-hover:scale-105 transition-transform">
             {picUrl ? (
                 <img 
                   src={picUrl} 
@@ -54,7 +57,7 @@ export const PlayerBar = () => {
             ) : (
                 <Music className="w-6 h-6 text-white/30" />
             )}
-            <div className="absolute inset-0 bg-black/40 hidden group-hover:flex items-center justify-center transition-all">
+            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all backdrop-blur-[2px]">
               <ChevronsUp className="w-6 h-6 text-white" />
             </div>
           </div>
@@ -79,7 +82,7 @@ export const PlayerBar = () => {
             </button>
             <button 
               onClick={togglePlay}
-              className="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 transition-transform"
+              className="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 transition-transform shadow-lg shadow-white/10"
             >
               {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-1" />}
             </button>
@@ -91,7 +94,7 @@ export const PlayerBar = () => {
             </button>
           </div>
           
-          <div className="w-full flex items-center gap-3 text-xs text-white/40 font-mono">
+          <div className="w-full flex items-center gap-3 text-xs text-white/40 font-mono group">
             <span className="w-8 text-right">{formatTime(progress)}</span>
             <input
               type="range"
@@ -99,7 +102,7 @@ export const PlayerBar = () => {
               max={duration || 100}
               value={progress}
               onChange={(e) => seek(Number(e.target.value))}
-              className="flex-1 h-1 bg-white/10 rounded-full appearance-none [&::-webkit-slider-thumb]:invisible group-hover:[&::-webkit-slider-thumb]:visible"
+              className="flex-1 h-1 bg-white/10 rounded-full appearance-none [&::-webkit-slider-thumb]:invisible group-hover:[&::-webkit-slider-thumb]:visible [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full"
             />
             <span className="w-8">{formatTime(duration)}</span>
           </div>
@@ -119,7 +122,7 @@ export const PlayerBar = () => {
               step="0.01"
               value={volume}
               onChange={(e) => setVolume(Number(e.target.value))}
-              className="w-full h-1 bg-white/10 rounded-full appearance-none"
+              className="w-full h-1 bg-white/10 rounded-full appearance-none hover:bg-white/20"
             />
           </div>
         </div>

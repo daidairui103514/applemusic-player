@@ -580,6 +580,7 @@ const AppContent = () => {
         user={user}
         currentView={currentView}
         likedPlaylistId={likedPlaylistId}
+        playlists={userPlaylists}
         onNavigate={handleNavigate}
         // No login/settings handlers needed here anymore
       />
