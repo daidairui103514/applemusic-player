@@ -200,18 +200,22 @@ class NeteaseService {
     };
 
     // Strategy: 
-    // 1. Try standard legacy endpoint (Most robust for non-VIP/search results)
-    let url = await fetchUrl(`/song/url?id=${id}`);
+    // 1. Try V1 standard (Most reliable for general playback including search results)
+    let url = await fetchUrl(`/song/url/v1?id=${id}&level=standard`);
     if (url) return url;
 
-    // 2. Try V1 standard (Newer API default)
-    url = await fetchUrl(`/song/url/v1?id=${id}&level=standard`);
-    if (url) return url;
-
-    // 3. Try V1 higher (Fallback)
+    // 2. Try V1 higher (Fallback if standard is empty but higher exists)
     url = await fetchUrl(`/song/url/v1?id=${id}&level=higher`);
     if (url) return url;
     
+    // 3. Try V1 exhigh
+    url = await fetchUrl(`/song/url/v1?id=${id}&level=exhigh`);
+    if (url) return url;
+
+    // 4. Try legacy endpoint (Last resort)
+    url = await fetchUrl(`/song/url?id=${id}`);
+    if (url) return url;
+
     return "";
   }
 

@@ -192,11 +192,11 @@ export const FullScreenPlayer = ({
         {showLyrics && (
            <div 
                 ref={lyricContainerRef}
-                className="w-full md:w-[60%] h-full overflow-y-auto no-scrollbar flex flex-col gap-6 text-left px-4 py-[50%] md:py-32 mask-image-b transition-all duration-500"
+                className="w-full md:w-[60%] h-full overflow-y-auto no-scrollbar flex flex-col gap-6 text-left px-4 py-[50%] md:py-32 transition-all duration-500 select-none"
                 style={{
-                    // Use a softer gradient for the mask to avoid abrupt cut-offs
-                    maskImage: 'linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%)',
-                    WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%)'
+                    // Use pixel-based mask for consistent fade out regardless of container height
+                    maskImage: 'linear-gradient(to bottom, transparent 0px, black 120px, black calc(100% - 120px), transparent 100%)',
+                    WebkitMaskImage: 'linear-gradient(to bottom, transparent 0px, black 120px, black calc(100% - 120px), transparent 100%)'
                 }}
            >
               {isLoadingLyrics ? (
