@@ -1,0 +1,5 @@
+{
+  "name": "Muse - Netease Client",
+  "description": "An elegant, Apple Music-inspired web player integrating with Netease Cloud Music API.",
+  "requestFramePermissions": []
+}
