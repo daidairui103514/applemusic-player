@@ -59,7 +59,7 @@ class NeteaseService {
   private async request(path: string, options: RequestInit = {}) {
     const urlObj = new URL(`${this.baseUrl}${path}`);
     
-    // 1. Add Timestamp to prevent caching
+    // 1. Add Timestamp to prevent caching (Essential for Song URLs)
     urlObj.searchParams.append('timestamp', Date.now().toString());
     
     // 2. Add realIP to bypass Netease region check
@@ -171,7 +171,6 @@ class NeteaseService {
 
   async getUserPlaylists(uid: number): Promise<Playlist[]> {
     if (!uid) return [];
-    // Increase limit to fetch all playlists for the sidebar
     const data = await this.request(`/user/playlist?uid=${uid}&limit=1000`);
     return data.playlist || [];
   }
@@ -187,7 +186,7 @@ class NeteaseService {
   }
 
   async getSongUrl(id: number): Promise<string> {
-    // Helper to process URL: Force HTTPS to avoid Mixed Content errors
+    // 1. Force HTTPS: Browser will block mixed content (HTTP audio on HTTPS site)
     const processUrl = (u: string) => {
         if (!u) return "";
         return u.replace(/^http:/, 'https:');
@@ -198,26 +197,30 @@ class NeteaseService {
             const res = await this.request(path);
             const u = res.data?.[0]?.url;
             return processUrl(u);
-        } catch (e) { return null; }
+        } catch (e) { 
+            console.warn(`Fetch failed for ${path}`, e);
+            return null; 
+        }
     };
 
-    // VIP STRATEGY:
-    // 1. Try V1 'exhigh' (High Quality). VIPs usually have access to this.
-    //    'os=pc' in request() helps verify VIP status.
-    let url = await fetchUrl(`/song/url/v1?id=${id}&level=exhigh`);
+    // --- HYBRID STRATEGY FOR VIP + ENHANCED API ---
+    
+    // Priority 1: Legacy Endpoint with High Bitrate (br=320000)
+    // Why? The "NeteaseCloudMusicApiEnhanced" project specifically hooks into `/song/url`.
+    // By passing `br=320000` (or 999000), VIPs get high quality, AND if the song is gray, 
+    // the backend proxy kicks in to unblock it.
+    let url = await fetchUrl(`/song/url?id=${id}&br=320000`);
     if (url) return url;
 
-    // 2. Try V1 'standard'. Reliable fallback for VIPs if HQ unavailable.
+    // Priority 2: V1 'standard' (Standard Quality)
+    // If Legacy fails completely (which is rare), try the modern endpoint.
+    // 'standard' is the most reliable V1 level that isn't flac (which browsers struggle with sometimes).
     url = await fetchUrl(`/song/url/v1?id=${id}&level=standard`);
     if (url) return url;
     
-    // 3. Try V1 'higher' (Another variant)
-    url = await fetchUrl(`/song/url/v1?id=${id}&level=higher`);
-    if (url) return url;
-
-    // 4. Last Resort: Legacy endpoint.
-    // This handles "Unblock" scenarios for gray songs, but might fail for pure VIP songs if the proxy server isn't VIP.
-    url = await fetchUrl(`/song/url?id=${id}`);
+    // Priority 3: V1 'exhigh' (Highest Quality)
+    // Only try this if standard fails or you really want FLAC (warning: huge bandwidth).
+    url = await fetchUrl(`/song/url/v1?id=${id}&level=exhigh`);
     if (url) return url;
 
     return "";
@@ -287,8 +290,6 @@ class NeteaseService {
     
     let songs: Track[] = [];
     if (songData.result?.songs?.length) {
-        // Search results (type=1) often have incomplete fields (artists vs ar, album vs al)
-        // and missing cover art. We must fetch details to get the standard Track object.
         const ids = songData.result.songs.map((s: any) => s.id);
         songs = await this.getSongDetail(ids);
     }

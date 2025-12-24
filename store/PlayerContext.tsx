@@ -27,7 +27,7 @@ export const PlayerProvider = ({ children }: PropsWithChildren<{}>) => {
   const [duration, setDuration] = useState(0);
   const [queue, setQueue] = useState<Track[]>([]);
   
-  // Cache song URLs to avoid re-fetching (Performance Boost)
+  // Cache song URLs to avoid re-fetching
   const urlCache = useRef<Map<number, string>>(new Map());
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -41,15 +41,25 @@ export const PlayerProvider = ({ children }: PropsWithChildren<{}>) => {
     const updateProgress = () => setProgress(audio.currentTime);
     const updateDuration = () => setDuration(audio.duration || 0);
     const handleEnded = () => nextTrack();
+    
+    // Add Error Listener
+    const handleError = (e: Event) => {
+        console.error("Audio playback error:", e);
+        setIsPlaying(false);
+        // Optional: Auto skip to next track on error
+        // nextTrack();
+    };
 
     audio.addEventListener('timeupdate', updateProgress);
     audio.addEventListener('loadedmetadata', updateDuration);
     audio.addEventListener('ended', handleEnded);
+    audio.addEventListener('error', handleError);
 
     return () => {
       audio.removeEventListener('timeupdate', updateProgress);
       audio.removeEventListener('loadedmetadata', updateDuration);
       audio.removeEventListener('ended', handleEnded);
+      audio.removeEventListener('error', handleError);
       audio.pause();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -71,6 +81,9 @@ export const PlayerProvider = ({ children }: PropsWithChildren<{}>) => {
         url = await neteaseService.getSongUrl(track.id);
         if (url) {
             urlCache.current.set(track.id, url);
+        } else {
+            console.error(`No URL found for track: ${track.name}`);
+            return; // Exit if no URL
         }
       } catch (err) {
         console.error("Failed to fetch song URL", err);
@@ -90,6 +103,8 @@ export const PlayerProvider = ({ children }: PropsWithChildren<{}>) => {
       } catch (e) {
           console.error("Playback failed", e);
           setIsPlaying(false);
+          // If playback fails (e.g., 403 Forbidden), remove from cache so we try fetching again next time
+          urlCache.current.delete(track.id);
       }
       
       setCurrentTrack({ ...track, url }); 
@@ -101,7 +116,13 @@ export const PlayerProvider = ({ children }: PropsWithChildren<{}>) => {
       if (isPlaying) {
         audioRef.current.pause();
       } else {
-        audioRef.current.play();
+        const playPromise = audioRef.current.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(error => {
+                console.error("Play interrupted", error);
+                setIsPlaying(false);
+            });
+        }
       }
       setIsPlaying(!isPlaying);
     }
