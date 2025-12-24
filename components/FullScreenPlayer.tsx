@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Volume2, ChevronDown, Quote, ListMusic, Music } from 'lucide-react';
-import { Track } from '../types';
+import { Track, LyricLine } from '../types';
+import { neteaseService } from '../services/neteaseService';
 
 interface FullScreenPlayerProps {
   currentTrack: Track;
@@ -24,6 +25,9 @@ const formatTime = (seconds: number) => {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 };
 
+// Regex to parse [mm:ss.xx] lyric lines
+const LYRIC_REGEX = /\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)/;
+
 export const FullScreenPlayer = ({
   currentTrack,
   isPlaying,
@@ -39,6 +43,62 @@ export const FullScreenPlayer = ({
   onVolumeChange
 }: FullScreenPlayerProps) => {
   const [showLyrics, setShowLyrics] = useState(false);
+  const [lyrics, setLyrics] = useState<LyricLine[]>([]);
+  const [isLoadingLyrics, setIsLoadingLyrics] = useState(false);
+  const lyricContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Fetch Lyrics when track changes
+  useEffect(() => {
+    if (isOpen && currentTrack) {
+        setLyrics([]);
+        setIsLoadingLyrics(true);
+        neteaseService.getLyric(currentTrack.id)
+            .then(data => {
+                const lrcText = data.lrc?.lyric || "";
+                if (!lrcText) {
+                    setLyrics([{ time: 0, text: "暂无歌词" }]);
+                    return;
+                }
+                const parsed: LyricLine[] = [];
+                const lines = lrcText.split('\n');
+                lines.forEach(line => {
+                    const match = LYRIC_REGEX.exec(line);
+                    if (match) {
+                        const min = parseInt(match[1]);
+                        const sec = parseInt(match[2]);
+                        const ms = parseInt(match[3]);
+                        const text = match[4].trim();
+                        // Only add if text exists
+                        if (text) {
+                            parsed.push({
+                                time: min * 60 + sec + ms / 1000,
+                                text
+                            });
+                        }
+                    }
+                });
+                setLyrics(parsed);
+            })
+            .catch(() => setLyrics([{ time: 0, text: "歌词加载失败" }]))
+            .finally(() => setIsLoadingLyrics(false));
+    }
+  }, [currentTrack, isOpen]);
+
+  // Determine active lyric index
+  const activeLyricIndex = lyrics.findIndex((line, index) => {
+      const nextLine = lyrics[index + 1];
+      return progress >= line.time && (!nextLine || progress < nextLine.time);
+  });
+
+  // Auto scroll lyrics
+  useEffect(() => {
+      if (showLyrics && lyricContainerRef.current && activeLyricIndex !== -1) {
+          const activeEl = lyricContainerRef.current.children[activeLyricIndex] as HTMLElement;
+          if (activeEl) {
+              activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+      }
+  }, [activeLyricIndex, showLyrics]);
 
   if (!isOpen) return null;
 
@@ -73,11 +133,14 @@ export const FullScreenPlayer = ({
       </div>
 
       {/* Main Content */}
-      <div className="relative z-10 flex-1 flex flex-row items-center justify-center px-12 gap-12 max-w-7xl mx-auto w-full">
+      <div className="relative z-10 flex-1 flex flex-row items-center justify-center px-12 gap-12 max-w-7xl mx-auto w-full h-[calc(100vh-250px)]">
         
         {/* Album Art Section */}
-        <div className={`transition-all duration-500 ease-out ${showLyrics ? 'w-1/3 scale-90 opacity-80 cursor-pointer' : 'w-full max-w-[500px] scale-100'}`} onClick={() => showLyrics && setShowLyrics(false)}>
-           <div className={`aspect-square rounded-xl shadow-2xl overflow-hidden bg-white/10 flex items-center justify-center ${isPlaying ? 'shadow-rose-500/20' : ''}`}>
+        <div 
+            className={`transition-all duration-500 ease-out flex items-center justify-center ${showLyrics ? 'w-1/3 opacity-80 cursor-pointer hidden md:flex' : 'w-full max-w-[500px]'}`} 
+            onClick={() => showLyrics && setShowLyrics(false)}
+        >
+           <div className={`aspect-square w-full rounded-xl shadow-2xl overflow-hidden bg-white/10 flex items-center justify-center transition-transform duration-700 ${isPlaying && !showLyrics ? 'scale-100 shadow-rose-500/20' : 'scale-90'}`}>
               {picUrl ? (
                   <img 
                     src={picUrl} 
@@ -90,39 +153,48 @@ export const FullScreenPlayer = ({
            </div>
         </div>
 
-        {/* Lyrics Section (Placeholder) */}
+        {/* Lyrics Section */}
         {showLyrics && (
-           <div className="w-2/3 h-[500px] overflow-y-auto custom-scrollbar flex flex-col gap-6 text-2xl font-bold text-white/50 px-4 mask-image-b">
-              <p className="text-white scale-110 origin-left transition-all">这是模拟的歌词展示</p>
-              <p>为了完美的音乐体验</p>
-              <p>请闭上眼睛</p>
-              <p>用心感受旋律的流动</p>
-              <p>这里每一行字</p>
-              <p>都代表着节奏的跳动</p>
-              <p>（歌词功能接入需要额外的API解析）</p>
-              <p>暂以静态文本代替</p>
-              <p>Enjoy the music</p>
-              <p>Like an Apple Music user</p>
+           <div 
+                ref={lyricContainerRef}
+                className="w-full md:w-2/3 h-full overflow-y-auto custom-scrollbar flex flex-col gap-8 text-center px-4 mask-image-b py-20"
+           >
+              {isLoadingLyrics ? (
+                  <div className="text-white/50 animate-pulse mt-20">正在加载歌词...</div>
+              ) : lyrics.length > 0 ? (
+                  lyrics.map((line, i) => (
+                      <p 
+                        key={i} 
+                        className={`transition-all duration-500 cursor-pointer hover:text-white/80 ${i === activeLyricIndex ? 'text-white text-3xl font-bold scale-105' : 'text-white/30 text-xl font-medium blur-[1px]'}`}
+                        onClick={() => onSeek(line.time)}
+                      >
+                          {line.text}
+                      </p>
+                  ))
+              ) : (
+                  <div className="text-white/30 mt-20">暂无歌词</div>
+              )}
            </div>
         )}
       </div>
 
       {/* Controls Section */}
-      <div className="relative z-10 pb-12 pt-8 px-12 max-w-4xl mx-auto w-full">
+      <div className="relative z-10 pb-12 pt-4 px-12 max-w-4xl mx-auto w-full">
         {/* Track Info */}
         <div className="flex items-end justify-between mb-8">
-           <div>
-             <h2 className="text-3xl font-bold mb-2">{currentTrack.name}</h2>
-             <p className="text-xl text-white/60">{artistName}</p>
+           <div className="overflow-hidden">
+             <h2 className="text-3xl font-bold mb-2 truncate pr-4">{currentTrack.name}</h2>
+             <p className="text-xl text-white/60 truncate">{artistName}</p>
            </div>
-           <div className="flex gap-4">
+           <div className="flex gap-4 shrink-0">
               <button 
                 onClick={() => setShowLyrics(!showLyrics)}
                 className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${showLyrics ? 'bg-white text-rose-500' : 'bg-white/10 text-white'}`}
+                title="歌词"
               >
                  <Quote className="w-5 h-5 fill-current" />
               </button>
-              <button className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center">
+              <button className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center text-white/70 hover:text-white">
                  <ListMusic className="w-5 h-5" />
               </button>
            </div>

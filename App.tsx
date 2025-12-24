@@ -6,7 +6,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { PlayerProvider, usePlayer } from './store/PlayerContext';
 import { neteaseService } from './services/neteaseService';
 import { Playlist, User, Track, ViewType } from './types';
-import { Play, AlertCircle, Clock, ChevronRight, Music, Calendar, Radio as RadioIcon } from 'lucide-react';
+import { Play, Clock, ChevronRight, Music, Settings, UserCircle, ChevronLeft, AlertCircle } from 'lucide-react';
 
 // --- Sub-components ---
 
@@ -86,6 +86,60 @@ const TrackList = ({ tracks, onPlay }: { tracks: Track[], onPlay: (track: Track)
     </div>
 );
 
+// --- New Top Bar Component ---
+const TopBar = ({ 
+    user, 
+    onOpenLogin, 
+    onOpenSettings,
+    canGoBack,
+    onBack
+}: { 
+    user: User | null, 
+    onOpenLogin: () => void, 
+    onOpenSettings: () => void,
+    canGoBack: boolean,
+    onBack: () => void
+}) => (
+    <div className="h-16 w-full flex items-center justify-between px-8 sticky top-0 z-30 bg-[#1c1c1e]/90 backdrop-blur-xl border-b border-white/5">
+        <div className="flex items-center gap-4">
+            <button 
+                onClick={onBack}
+                disabled={!canGoBack}
+                className={`w-8 h-8 rounded-full bg-black/20 flex items-center justify-center transition-colors ${canGoBack ? 'text-white hover:bg-white/10' : 'text-white/10 cursor-default'}`}
+            >
+                <ChevronLeft className="w-5 h-5" />
+            </button>
+        </div>
+        
+        <div className="flex items-center gap-4">
+            <button 
+                onClick={onOpenSettings}
+                className="p-2 text-white/50 hover:text-white transition-colors"
+                title="设置"
+            >
+                <Settings className="w-5 h-5" />
+            </button>
+            
+            {user ? (
+                <div className="flex items-center gap-3 pl-2 border-l border-white/10">
+                     <span className="text-sm font-medium text-white/80">{user.nickname}</span>
+                     <div className="w-8 h-8 rounded-full overflow-hidden border border-white/10 bg-white/5">
+                        <img src={user.avatarUrl} alt={user.nickname} className="w-full h-full object-cover" />
+                     </div>
+                </div>
+            ) : (
+                <button 
+                    onClick={onOpenLogin}
+                    className="flex items-center gap-2 px-4 py-1.5 bg-white text-black rounded-full text-sm font-bold hover:scale-105 transition-transform"
+                >
+                    <UserCircle className="w-4 h-4" />
+                    登录
+                </button>
+            )}
+        </div>
+    </div>
+);
+
 const PlaylistDetail = ({ id, onBack }: { id: number, onBack: () => void }) => {
     const [playlist, setPlaylist] = useState<Playlist | null>(null);
     const [tracks, setTracks] = useState<Track[]>([]);
@@ -98,6 +152,7 @@ const PlaylistDetail = ({ id, onBack }: { id: number, onBack: () => void }) => {
             try {
                 const p = await neteaseService.getPlaylistDetail(id);
                 setPlaylist(p);
+                // Don't wait for tracks to show header info if possible, but structure prevents it easily here without context
                 const t = await neteaseService.getPlaylistTracks(id);
                 setTracks(t);
             } catch (e) {
@@ -118,7 +173,7 @@ const PlaylistDetail = ({ id, onBack }: { id: number, onBack: () => void }) => {
     if (!playlist) return <div className="p-10 text-white/50">无法加载歌单，请稍后重试</div>;
 
     return (
-        <div className="flex flex-col min-h-full">
+        <div className="flex flex-col min-h-full pb-32">
             <div className="p-10 flex gap-8 items-end bg-gradient-to-b from-white/10 to-[#1c1c1e]">
                 <div className="w-52 h-52 rounded-xl overflow-hidden shadow-2xl shrink-0 border border-white/10 bg-white/5 flex items-center justify-center">
                     {playlist.coverImgUrl ? (
@@ -138,14 +193,11 @@ const PlaylistDetail = ({ id, onBack }: { id: number, onBack: () => void }) => {
                         >
                             <Play className="w-5 h-5 fill-current" /> 播放全部
                         </button>
-                        <button onClick={onBack} className="px-6 py-3 rounded-full border border-white/10 hover:bg-white/10 text-sm font-medium transition-colors">
-                            返回
-                        </button>
                     </div>
                 </div>
             </div>
             
-            <div className="px-10 pb-20">
+            <div className="px-10">
                 <div className="grid grid-cols-[auto_1fr_1fr_auto] gap-4 px-4 py-3 border-b border-white/10 text-xs text-white/40 uppercase font-medium tracking-wider mb-2">
                     <span className="w-8 text-center">#</span>
                     <span>标题</span>
@@ -157,6 +209,8 @@ const PlaylistDetail = ({ id, onBack }: { id: number, onBack: () => void }) => {
         </div>
     );
 };
+
+// ... [Keep other views like DailyRecommendView, TopListsView, HistoryView, FMView, RadioView, SearchResults AS IS, they don't need changes except ensuring they render correctly in the new structure] ...
 
 const DailyRecommendView = () => {
     const [tracks, setTracks] = useState<Track[]>([]);
@@ -180,7 +234,7 @@ const DailyRecommendView = () => {
     const today = new Date().getDate();
 
     return (
-        <div className="flex flex-col min-h-full">
+        <div className="flex flex-col min-h-full pb-32">
             <div className="p-10 flex gap-8 items-end bg-gradient-to-b from-rose-900/40 to-[#1c1c1e]">
                  <div className="w-40 h-40 bg-white rounded-xl flex flex-col items-center justify-center text-black">
                      <span className="text-2xl font-bold uppercase text-rose-500">Today</span>
@@ -197,7 +251,7 @@ const DailyRecommendView = () => {
                     </button>
                  </div>
             </div>
-            <div className="px-10 pb-20">
+            <div className="px-10">
                 <TrackList tracks={tracks} onPlay={(t) => playTrack(t, tracks)} />
             </div>
         </div>
@@ -250,8 +304,6 @@ const FMView = () => {
     const { playTrack, currentTrack, nextTrack } = usePlayer();
     const [loading, setLoading] = useState(false);
 
-    // This is a simple implementation. Real FM manages queue differently.
-    // Here we just fetch FM tracks and push them to play.
     const startFM = async () => {
         setLoading(true);
         const tracks = await neteaseService.getPersonalFM();
@@ -280,7 +332,6 @@ const FMView = () => {
                  <div className="flex gap-6">
                      <button onClick={() => nextTrack()} className="w-16 h-16 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
                         <AlertCircle className="w-6 h-6 rotate-45" /> 
-                        {/* Fake dislike for UI demo */}
                      </button>
                      <button 
                         onClick={startFM}
@@ -407,11 +458,9 @@ const AppContent = () => {
   // Initial Check for Login Status
   useEffect(() => {
      const checkLogin = async () => {
-        // 1. Try to load cached user first for immediate UI feedback
         const cachedUser = neteaseService.getCachedUserProfile();
         if (cachedUser) {
             setUser(cachedUser);
-            // Fetch playlists immediately using cached ID if possible, or wait
             if (cachedUser.userId) {
                 neteaseService.getUserPlaylists(cachedUser.userId).then(pl => {
                     setUserPlaylists(pl);
@@ -419,24 +468,16 @@ const AppContent = () => {
                 }).catch(() => {});
             }
         }
-
-        // 2. Verify with API in background
         try {
            const u = await neteaseService.getUserProfile();
-           setUser(u); // Update with fresh data
-           
+           setUser(u);
            if(u && u.userId) {
              const userPl = await neteaseService.getUserPlaylists(u.userId);
              setUserPlaylists(userPl);
-             if (userPl.length > 0) {
-                 setLikedPlaylistId(userPl[0].id); 
-             }
+             if (userPl.length > 0) setLikedPlaylistId(userPl[0].id);
            }
         } catch (e) {
            console.log("App: Not logged in or session expired");
-           // Only clear user if we really got an auth error, but for now lets keep the cached one 
-           // unless explicitly logged out, or handle specific 301 error codes.
-           // If session is truly dead, data fetching will fail elsewhere.
         }
      };
      checkLogin();
@@ -446,40 +487,28 @@ const AppContent = () => {
   useEffect(() => {
     const loadHomeData = async () => {
       if (currentView !== 'home') return;
-      
       setLoading(true);
       setError('');
       try {
-        // Parallel requests for home content
         const [top] = await Promise.all([
              neteaseService.getTopPlaylists().catch(() => []),
         ]);
         setTopPlaylists(top);
 
-        // Conditional loading based on login status
         if (user) {
-             // Logged in: Load personalized recommendations
              const rec = await neteaseService.getRecommendResource().catch(() => []);
              setRecPlaylists(rec);
-
-             // Load user playlists if missing
              if (user.userId && userPlaylists.length === 0) {
                  const userPl = await neteaseService.getUserPlaylists(user.userId);
                  setUserPlaylists(userPl);
                  if (userPl.length > 0) setLikedPlaylistId(userPl[0].id);
              }
         } else {
-             // Guest: Load personalized (guest mode)
-             const guestRec = await neteaseService.getPersonalized().catch(e => {
-                 console.warn("Guest personalized failed", e);
-                 return [];
-             });
+             const guestRec = await neteaseService.getPersonalized().catch(e => []);
              setRecPlaylists(guestRec);
         }
 
       } catch (e: any) {
-        console.error("Failed to load home data", e);
-        // Don't show error if we have some data
         if (topPlaylists.length === 0) {
             setError(e.message || "连接 API 失败");
         }
@@ -497,7 +526,6 @@ const AppContent = () => {
 
   const renderHome = () => (
     <>
-        {/* Hero Banner */}
         <div className="w-full h-96 relative shrink-0">
             <div className="absolute inset-0 bg-gradient-to-b from-rose-900/40 via-[#1c1c1e]/80 to-[#1c1c1e] z-0" />
             <div className="absolute top-0 right-0 w-2/3 h-full bg-gradient-to-l from-rose-500/10 to-transparent z-0 opacity-50" />
@@ -542,12 +570,6 @@ const AppContent = () => {
                     <HorizontalScrollList playlists={topPlaylists} onPlaylistClick={(id) => handleNavigate('playlist', id)} />
                 </>
             )}
-            
-            {loading && topPlaylists.length === 0 && (
-               <div className="p-10 text-center text-white/30 animate-pulse">
-                   正在加载推荐内容...
-               </div>
-            )}
         </div>
     </>
   );
@@ -558,29 +580,39 @@ const AppContent = () => {
         user={user}
         currentView={currentView}
         likedPlaylistId={likedPlaylistId}
-        onOpenLogin={() => setIsLoginOpen(true)}
-        onOpenSettings={() => setIsSettingsOpen(true)}
         onNavigate={handleNavigate}
+        // No login/settings handlers needed here anymore
       />
       
-      <div className="flex-1 h-full overflow-y-auto custom-scrollbar bg-[#1c1c1e]">
-        {error && currentView === 'home' && (
-             <div className="flex items-center justify-between p-4 bg-red-500/10 border-l-4 border-red-500 text-white/70 mx-10 mt-10 rounded">
-                 <span>无法连接到服务器: {error}</span>
-                 <button onClick={() => setIsSettingsOpen(true)} className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded text-sm text-white">
-                    配置 API
-                 </button>
-             </div>
-        )}
+      <div className="flex-1 h-full flex flex-col overflow-hidden bg-[#1c1c1e]">
+        {/* New Top Bar */}
+        <TopBar 
+            user={user} 
+            onOpenLogin={() => setIsLoginOpen(true)}
+            onOpenSettings={() => setIsSettingsOpen(true)}
+            canGoBack={currentView !== 'home'}
+            onBack={() => handleNavigate('home')}
+        />
 
-        {currentView === 'home' && renderHome()}
-        {currentView === 'search' && <SearchResults query={viewData} onPlaylistClick={(id) => handleNavigate('playlist', id)} />}
-        {currentView === 'playlist' && <PlaylistDetail id={viewData} onBack={() => handleNavigate('home')} />}
-        {currentView === 'daily' && <DailyRecommendView />}
-        {currentView === 'toplist' && <TopListsView onPlaylistClick={(id) => handleNavigate('playlist', id)} />}
-        {currentView === 'fm' && <FMView />}
-        {currentView === 'history' && user && <HistoryView user={user} />}
-        {currentView === 'radio' && <RadioView />}
+        <div className="flex-1 overflow-y-auto custom-scrollbar relative">
+            {error && currentView === 'home' && (
+                <div className="flex items-center justify-between p-4 bg-red-500/10 border-l-4 border-red-500 text-white/70 mx-10 mt-10 rounded">
+                    <span>无法连接到服务器: {error}</span>
+                    <button onClick={() => setIsSettingsOpen(true)} className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded text-sm text-white">
+                        配置 API
+                    </button>
+                </div>
+            )}
+
+            {currentView === 'home' && renderHome()}
+            {currentView === 'search' && <SearchResults query={viewData} onPlaylistClick={(id) => handleNavigate('playlist', id)} />}
+            {currentView === 'playlist' && <PlaylistDetail id={viewData} onBack={() => handleNavigate('home')} />}
+            {currentView === 'daily' && <DailyRecommendView />}
+            {currentView === 'toplist' && <TopListsView onPlaylistClick={(id) => handleNavigate('playlist', id)} />}
+            {currentView === 'fm' && <FMView />}
+            {currentView === 'history' && user && <HistoryView user={user} />}
+            {currentView === 'radio' && <RadioView />}
+        </div>
       </div>
 
       <PlayerBar />

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Home, Search, Library, Radio, Heart, ListMusic, Disc, Mic2, UserCircle, Settings, Flame, History } from 'lucide-react';
 import { User, ViewType } from '../types';
@@ -6,18 +7,17 @@ interface SidebarProps {
   user: User | null;
   currentView: ViewType;
   likedPlaylistId?: number; 
-  onOpenLogin: () => void;
-  onOpenSettings: () => void;
   onNavigate: (view: ViewType, data?: any) => void;
+  // Methods to open login/settings removed from here as they moved to TopBar
+  onOpenLogin?: () => void; 
 }
 
 export const Sidebar = ({ 
   user, 
   currentView,
   likedPlaylistId,
-  onOpenLogin,
-  onOpenSettings,
-  onNavigate
+  onNavigate,
+  onOpenLogin
 }: SidebarProps) => {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -85,7 +85,7 @@ export const Sidebar = ({
           <h3 className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-2 px-3">我的资料库</h3>
           {user && likedPlaylistId ? (
             <div 
-                className={navItemClass(false)} // Highlight logic can be improved
+                className={navItemClass(false)} 
                 onClick={() => onNavigate('playlist', likedPlaylistId)} 
             >
                 <Heart className="w-5 h-5" />
@@ -98,7 +98,7 @@ export const Sidebar = ({
              </div>
           )}
           
-          <div className={navItemClass(currentView === 'history')} onClick={() => user ? onNavigate('history') : onOpenLogin()}>
+          <div className={navItemClass(currentView === 'history')} onClick={() => user ? onNavigate('history') : onOpenLogin?.()}>
             <History className="w-5 h-5" />
             最近播放
           </div>
@@ -106,45 +106,18 @@ export const Sidebar = ({
 
         <div>
           <h3 className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-2 px-3">精选歌单</h3>
-          <div className={navItemClass(currentView === 'daily')} onClick={() => user ? onNavigate('daily') : onOpenLogin()}>
+          <div className={navItemClass(currentView === 'daily')} onClick={() => user ? onNavigate('daily') : onOpenLogin?.()}>
             <ListMusic className="w-5 h-5" />
             每日推荐
           </div>
-          <div className={navItemClass(currentView === 'fm')} onClick={() => user ? onNavigate('fm') : onOpenLogin()}>
+          <div className={navItemClass(currentView === 'fm')} onClick={() => user ? onNavigate('fm') : onOpenLogin?.()}>
             <Flame className="w-5 h-5" />
             私人漫游
           </div>
         </div>
       </nav>
-
-      <div className="mt-auto pt-4 border-t border-white/5 space-y-2">
-        {!user ? (
-           <button 
-             onClick={onOpenLogin}
-             className="w-full py-2.5 bg-rose-500 hover:bg-rose-600 text-white rounded-lg text-sm font-medium transition-all shadow-lg shadow-rose-500/20 hover:scale-[1.02]"
-           >
-             登录网易云账号
-           </button>
-        ) : (
-          <div className="flex items-center gap-3 px-2 py-2 hover:bg-white/5 rounded-lg transition-colors cursor-pointer group">
-             <div className="w-9 h-9 rounded-full bg-white/10 overflow-hidden border border-white/10">
-                <img src={user.avatarUrl} alt={user.nickname} className="w-full h-full object-cover" />
-             </div>
-             <div className="flex flex-col flex-1 min-w-0">
-               <span className="text-sm font-medium truncate text-white group-hover:text-rose-500 transition-colors">{user.nickname}</span>
-               <span className="text-[10px] text-white/40 truncate">{user.signature || "网易云音乐用户"}</span>
-             </div>
-          </div>
-        )}
-        
-        <button 
-             onClick={onOpenSettings}
-             className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-white/40 hover:text-white hover:bg-white/5 transition-colors"
-           >
-             <Settings className="w-5 h-5" />
-             设置 API
-        </button>
-      </div>
+      
+      {/* Bottom section removed as requested */}
     </div>
   );
 };

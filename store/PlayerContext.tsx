@@ -26,6 +26,9 @@ export const PlayerProvider = ({ children }: PropsWithChildren<{}>) => {
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [queue, setQueue] = useState<Track[]>([]);
+  
+  // Cache song URLs to avoid re-fetching (Performance Boost)
+  const urlCache = useRef<Map<number, string>>(new Map());
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -56,9 +59,19 @@ export const PlayerProvider = ({ children }: PropsWithChildren<{}>) => {
     if (contextQueue) setQueue(contextQueue);
 
     let url = track.url;
+    
+    // Check Cache first
+    if (!url && urlCache.current.has(track.id)) {
+        url = urlCache.current.get(track.id);
+    }
+
+    // If not in cache and not in object, fetch it
     if (!url) {
       try {
         url = await neteaseService.getSongUrl(track.id);
+        if (url) {
+            urlCache.current.set(track.id, url);
+        }
       } catch (err) {
         console.error("Failed to fetch song URL", err);
         return;
@@ -66,10 +79,20 @@ export const PlayerProvider = ({ children }: PropsWithChildren<{}>) => {
     }
 
     if (audioRef.current && url) {
-      audioRef.current.src = url;
-      audioRef.current.play().catch(e => console.error("Playback failed", e));
-      setCurrentTrack({ ...track, url }); // Store url so we don't refetch needlessly
-      setIsPlaying(true);
+      // Don't reload if it's the same url
+      if (audioRef.current.src !== url) {
+        audioRef.current.src = url;
+      }
+      
+      try {
+          await audioRef.current.play();
+          setIsPlaying(true);
+      } catch (e) {
+          console.error("Playback failed", e);
+          setIsPlaying(false);
+      }
+      
+      setCurrentTrack({ ...track, url }); 
     }
   };
 

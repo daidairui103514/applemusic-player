@@ -1,3 +1,4 @@
+
 export interface User {
   userId: number;
   nickname: string;
@@ -49,6 +50,20 @@ export interface QrCheckResult {
   code: number;
   message: string;
   cookie?: string;
+}
+
+export interface LyricData {
+  lrc: {
+    lyric: string;
+  };
+  tlyric?: {
+    lyric: string;
+  };
+}
+
+export interface LyricLine {
+  time: number; // in seconds
+  text: string;
 }
 
 // Added new view types for Sidebar items

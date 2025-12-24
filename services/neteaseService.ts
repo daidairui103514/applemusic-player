@@ -1,5 +1,5 @@
 import { STORAGE_KEY_API_URL, STORAGE_KEY_COOKIE, STORAGE_KEY_USER, DEFAULT_API_URL } from '../constants';
-import { Playlist, Track, User, QrCheckResult } from '../types';
+import { Playlist, Track, User, QrCheckResult, LyricData } from '../types';
 
 class NeteaseService {
   private baseUrl: string;
@@ -193,6 +193,11 @@ class NeteaseService {
     // Fallback V1 endpoint (often needed for higher quality/unblock)
     const dataV1 = await this.request(`/song/url/v1?id=${id}&level=exhigh`);
     return dataV1.data?.[0]?.url || "";
+  }
+
+  async getLyric(id: number): Promise<LyricData> {
+    const data = await this.request(`/lyric?id=${id}`);
+    return data;
   }
   
   async getDailyRecommendSongs(): Promise<Track[]> {
