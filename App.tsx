@@ -115,7 +115,7 @@ const PlaylistDetail = ({ id, onBack }: { id: number, onBack: () => void }) => {
         </div>
     );
     
-    if (!playlist) return <div className="p-10 text-white/50">无法加载歌单</div>;
+    if (!playlist) return <div className="p-10 text-white/50">无法加载歌单，请稍后重试</div>;
 
     return (
         <div className="flex flex-col min-h-full">
@@ -216,7 +216,7 @@ const TopListsView = ({ onPlaylistClick }: { onPlaylistClick: (id: number) => vo
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
                 {playlists.map(p => (
                     <div key={p.id} className="group cursor-pointer" onClick={() => onPlaylistClick(p.id)}>
-                        <div className="aspect-square rounded-lg overflow-hidden mb-3 relative shadow-lg">
+                        <div className="aspect-square rounded-lg overflow-hidden mb-3 relative shadow-lg bg-white/5">
                             <img src={p.coverImgUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
                             <div className="absolute top-2 right-2 text-[10px] bg-black/40 px-2 py-1 rounded backdrop-blur-sm">{p.updateFrequency}</div>
                         </div>
@@ -347,7 +347,7 @@ const SearchResults = ({ query, onPlaylistClick }: { query: string, onPlaylistCl
     if(loading) return <div className="p-10 text-white/50">正在搜索 "{query}"...</div>;
 
     if(songs.length === 0 && playlists.length === 0) {
-        return <div className="p-10 text-white/50">未找到 "{query}" 的相关结果</div>;
+        return <div className="p-10 text-white/50">未找到 "{query}" 的相关结果。请检查网络或 API 设置。</div>;
     }
 
     return (
@@ -433,24 +433,36 @@ const AppContent = () => {
       setLoading(true);
       setError('');
       try {
-        const [rec, top] = await Promise.all([
-             neteaseService.getRecommendResource().catch(() => []),
-             neteaseService.getTopPlaylists().catch(() => [])
+        // Parallel requests for home content
+        const [top] = await Promise.all([
+             neteaseService.getTopPlaylists().catch(() => []),
         ]);
-        
-        setRecPlaylists(rec);
         setTopPlaylists(top);
 
-        // Try load user playlist if not loaded but we have a user now
-        if (user && user.userId && userPlaylists.length === 0) {
-             const userPl = await neteaseService.getUserPlaylists(user.userId);
-             setUserPlaylists(userPl);
-             if (userPl.length > 0) setLikedPlaylistId(userPl[0].id);
+        // Conditional loading based on login status
+        if (user) {
+             // Logged in: Load personalized recommendations
+             const rec = await neteaseService.getRecommendResource().catch(() => []);
+             setRecPlaylists(rec);
+
+             // Load user playlists if missing
+             if (user.userId && userPlaylists.length === 0) {
+                 const userPl = await neteaseService.getUserPlaylists(user.userId);
+                 setUserPlaylists(userPl);
+                 if (userPl.length > 0) setLikedPlaylistId(userPl[0].id);
+             }
+        } else {
+             // Guest: Load personalized (guest mode)
+             const guestRec = await neteaseService.getPersonalized().catch(e => {
+                 console.warn("Guest personalized failed", e);
+                 return [];
+             });
+             setRecPlaylists(guestRec);
         }
 
       } catch (e: any) {
         console.error("Failed to load home data", e);
-        setError(e.message || "部分内容加载失败");
+        setError(e.message || "连接 API 失败");
       } finally {
         setLoading(false);
       }
@@ -482,7 +494,7 @@ const AppContent = () => {
                     沉浸在高保真的音质中，感受每一个音符的跳动。Muse Music 为您带来最纯粹的聆听体验。
                 </p>
                 <div className="flex gap-4">
-                     <button onClick={() => handleNavigate('search', '新歌')} className="px-8 py-3 bg-white text-black rounded-lg font-bold hover:scale-105 transition-transform flex items-center gap-2 shadow-xl shadow-white/5">
+                     <button onClick={() => handleNavigate('search', '周杰伦')} className="px-8 py-3 bg-white text-black rounded-lg font-bold hover:scale-105 transition-transform flex items-center gap-2 shadow-xl shadow-white/5">
                         <Play className="w-5 h-5 fill-current" /> 立即收听
                      </button>
                 </div>
@@ -499,7 +511,7 @@ const AppContent = () => {
 
             {recPlaylists.length > 0 && (
                 <>
-                    <SectionHeader title="为你推荐" />
+                    <SectionHeader title={user ? "为您推荐" : "推荐歌单"} />
                     <HorizontalScrollList playlists={recPlaylists} onPlaylistClick={(id) => handleNavigate('playlist', id)} />
                 </>
             )}
@@ -513,7 +525,7 @@ const AppContent = () => {
             
             {loading && topPlaylists.length === 0 && (
                <div className="p-10 text-center text-white/30 animate-pulse">
-                   正在加载更多内容...
+                   正在加载推荐内容...
                </div>
             )}
         </div>
@@ -533,8 +545,11 @@ const AppContent = () => {
       
       <div className="flex-1 h-full overflow-y-auto custom-scrollbar bg-[#1c1c1e]">
         {error && currentView === 'home' && (
-             <div className="p-4 bg-red-500/10 border-l-4 border-red-500 text-white/70 mx-10 mt-10 rounded">
-                 {error} <button onClick={() => window.location.reload()} className="underline ml-2">重试</button>
+             <div className="flex items-center justify-between p-4 bg-red-500/10 border-l-4 border-red-500 text-white/70 mx-10 mt-10 rounded">
+                 <span>无法连接到服务器: {error}</span>
+                 <button onClick={() => setIsSettingsOpen(true)} className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded text-sm text-white">
+                    配置 API
+                 </button>
              </div>
         )}
 
