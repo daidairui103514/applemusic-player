@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Volume2, ChevronDown, MessageSquareQuote, ListMusic, Music } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Volume2, ChevronDown, Quote, ListMusic, Music } from 'lucide-react';
 import { Track } from '../types';
 
 interface FullScreenPlayerProps {
@@ -120,7 +120,7 @@ export const FullScreenPlayer = ({
                 onClick={() => setShowLyrics(!showLyrics)}
                 className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${showLyrics ? 'bg-white text-rose-500' : 'bg-white/10 text-white'}`}
               >
-                 <MessageSquareQuote className="w-5 h-5 fill-current" />
+                 <Quote className="w-5 h-5 fill-current" />
               </button>
               <button className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center">
                  <ListMusic className="w-5 h-5" />
