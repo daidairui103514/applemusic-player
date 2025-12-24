@@ -407,9 +407,23 @@ const AppContent = () => {
   // Initial Check for Login Status
   useEffect(() => {
      const checkLogin = async () => {
+        // 1. Try to load cached user first for immediate UI feedback
+        const cachedUser = neteaseService.getCachedUserProfile();
+        if (cachedUser) {
+            setUser(cachedUser);
+            // Fetch playlists immediately using cached ID if possible, or wait
+            if (cachedUser.userId) {
+                neteaseService.getUserPlaylists(cachedUser.userId).then(pl => {
+                    setUserPlaylists(pl);
+                    if (pl.length > 0) setLikedPlaylistId(pl[0].id);
+                }).catch(() => {});
+            }
+        }
+
+        // 2. Verify with API in background
         try {
            const u = await neteaseService.getUserProfile();
-           setUser(u);
+           setUser(u); // Update with fresh data
            
            if(u && u.userId) {
              const userPl = await neteaseService.getUserPlaylists(u.userId);
@@ -419,7 +433,10 @@ const AppContent = () => {
              }
            }
         } catch (e) {
-           console.log("App: Not logged in");
+           console.log("App: Not logged in or session expired");
+           // Only clear user if we really got an auth error, but for now lets keep the cached one 
+           // unless explicitly logged out, or handle specific 301 error codes.
+           // If session is truly dead, data fetching will fail elsewhere.
         }
      };
      checkLogin();
@@ -462,7 +479,10 @@ const AppContent = () => {
 
       } catch (e: any) {
         console.error("Failed to load home data", e);
-        setError(e.message || "连接 API 失败");
+        // Don't show error if we have some data
+        if (topPlaylists.length === 0) {
+            setError(e.message || "连接 API 失败");
+        }
       } finally {
         setLoading(false);
       }
