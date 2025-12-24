@@ -196,6 +196,12 @@ class NeteaseService {
     return dataV1.data?.[0]?.url || "";
   }
 
+  async getSongDetail(ids: number[]): Promise<Track[]> {
+    if (ids.length === 0) return [];
+    const data = await this.request(`/song/detail?ids=${ids.join(',')}`);
+    return data.songs || [];
+  }
+
   async getLyric(id: number): Promise<LyricData> {
     const data = await this.request(`/lyric?id=${id}`);
     return data;
@@ -252,8 +258,16 @@ class NeteaseService {
     const songData = await this.request(`/search?keywords=${encodeURIComponent(keywords)}&type=1&limit=30`);
     const playlistData = await this.request(`/search?keywords=${encodeURIComponent(keywords)}&type=1000&limit=30`);
     
+    let songs: Track[] = [];
+    if (songData.result?.songs?.length) {
+        // Search results (type=1) often have incomplete fields (artists vs ar, album vs al)
+        // and missing cover art. We must fetch details to get the standard Track object.
+        const ids = songData.result.songs.map((s: any) => s.id);
+        songs = await this.getSongDetail(ids);
+    }
+
     return {
-        songs: songData.result?.songs || [],
+        songs,
         playlists: playlistData.result?.playlists || []
     };
   }
