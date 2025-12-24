@@ -62,11 +62,13 @@ class NeteaseService {
     // 1. Add Timestamp to prevent caching
     urlObj.searchParams.append('timestamp', Date.now().toString());
     
-    // 2. CRITICAL FIX: Add realIP to bypass Netease region check on Vercel/Foreign servers
-    // Using the IP from your screenshot which is a valid CN IP
+    // 2. Add realIP to bypass Netease region check
     urlObj.searchParams.append('realIP', '116.25.146.177');
+
+    // 3. IMPORTANT FOR VIP: Add os=pc to mimic PC client for better permission handling
+    urlObj.searchParams.append('os', 'pc');
     
-    // 3. Append cookie to URL params (most robust method for cross-origin APIs)
+    // 4. Append cookie to URL params (most robust method for cross-origin APIs)
     if (this.cookie) {
       urlObj.searchParams.append('cookie', this.cookie);
     }
@@ -199,20 +201,22 @@ class NeteaseService {
         } catch (e) { return null; }
     };
 
-    // Strategy: 
-    // 1. Try V1 standard (Most reliable for general playback including search results)
-    let url = await fetchUrl(`/song/url/v1?id=${id}&level=standard`);
+    // VIP STRATEGY:
+    // 1. Try V1 'exhigh' (High Quality). VIPs usually have access to this.
+    //    'os=pc' in request() helps verify VIP status.
+    let url = await fetchUrl(`/song/url/v1?id=${id}&level=exhigh`);
     if (url) return url;
 
-    // 2. Try V1 higher (Fallback if standard is empty but higher exists)
-    url = await fetchUrl(`/song/url/v1?id=${id}&level=higher`);
+    // 2. Try V1 'standard'. Reliable fallback for VIPs if HQ unavailable.
+    url = await fetchUrl(`/song/url/v1?id=${id}&level=standard`);
     if (url) return url;
     
-    // 3. Try V1 exhigh
-    url = await fetchUrl(`/song/url/v1?id=${id}&level=exhigh`);
+    // 3. Try V1 'higher' (Another variant)
+    url = await fetchUrl(`/song/url/v1?id=${id}&level=higher`);
     if (url) return url;
 
-    // 4. Try legacy endpoint (Last resort)
+    // 4. Last Resort: Legacy endpoint.
+    // This handles "Unblock" scenarios for gray songs, but might fail for pure VIP songs if the proxy server isn't VIP.
     url = await fetchUrl(`/song/url?id=${id}`);
     if (url) return url;
 

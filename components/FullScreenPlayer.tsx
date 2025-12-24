@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Volume2, ChevronDown, Quote, ListMusic, Music, MoreHorizontal } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Volume2, ChevronDown, MessageSquareQuote, MoreHorizontal, ListMusic } from 'lucide-react';
 import { Track, LyricLine } from '../types';
 import { neteaseService } from '../services/neteaseService';
 import { useSettings } from '../store/SettingsContext';
@@ -42,12 +42,13 @@ export const FullScreenPlayer = ({
   onSeek,
   onVolumeChange
 }: FullScreenPlayerProps) => {
-  const { lyricSize, blurLevel, enableMotion } = useSettings();
-  const [showLyrics, setShowLyrics] = useState(false);
+  const { lyricSize, enableMotion } = useSettings();
   const [lyrics, setLyrics] = useState<LyricLine[]>([]);
   const [isLoadingLyrics, setIsLoadingLyrics] = useState(false);
   const lyricContainerRef = useRef<HTMLDivElement>(null);
-  
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const [scrubValue, setScrubValue] = useState(0);
+
   // Fetch Lyrics
   useEffect(() => {
     if (currentTrack) {
@@ -90,261 +91,278 @@ export const FullScreenPlayer = ({
       return progress >= line.time && (!nextLine || progress < nextLine.time);
   });
 
+  // Smooth Scroll to Lyric
   useEffect(() => {
-      if (showLyrics && lyricContainerRef.current && activeLyricIndex !== -1) {
+      if (lyricContainerRef.current && activeLyricIndex !== -1 && !isScrubbing) {
           const activeEl = lyricContainerRef.current.children[activeLyricIndex] as HTMLElement;
           if (activeEl) {
-              activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Calculate center position manually for smoother customized behavior
+            const container = lyricContainerRef.current;
+            const scrollTop = activeEl.offsetTop - container.offsetHeight / 2 + activeEl.offsetHeight / 2;
+            
+            container.scrollTo({
+                top: scrollTop,
+                behavior: 'smooth'
+            });
           }
       }
-  }, [activeLyricIndex, showLyrics]);
+  }, [activeLyricIndex, isScrubbing]);
 
   const picUrl = currentTrack.al?.picUrl;
   const artistName = currentTrack.ar?.map(a => a.name).join(', ') || "未知艺术家";
 
-  // Dynamic Styles based on Settings
-  const blurClass = blurLevel === 'low' ? 'blur-[40px]' : blurLevel === 'medium' ? 'blur-[80px]' : 'blur-[120px]';
-  
-  const getLyricActiveSize = () => {
+  // Dynamic Styles
+  const getLyricSizeClass = () => {
      switch(lyricSize) {
-         case 'small': return 'text-2xl md:text-3xl';
-         case 'large': return 'text-4xl md:text-5xl';
-         default: return 'text-3xl md:text-4xl';
+         case 'small': return 'text-2xl leading-relaxed';
+         case 'large': return 'text-5xl leading-tight';
+         default: return 'text-4xl leading-snug';
      }
   };
 
-  const getLyricInactiveSize = () => {
-    switch(lyricSize) {
-        case 'small': return 'text-base md:text-xl';
-        case 'large': return 'text-xl md:text-3xl';
-        default: return 'text-lg md:text-2xl';
-    }
-  };
+  const effectiveProgress = isScrubbing ? scrubValue : progress;
 
+  // Render nothing if closed (but keep in DOM for transition if needed, though here we use translate)
   const containerClass = isOpen 
-    ? "translate-y-0 opacity-100 pointer-events-auto" 
-    : "translate-y-[100vh] opacity-0 pointer-events-none";
+    ? "translate-y-0 opacity-100 scale-100 pointer-events-auto" 
+    : "translate-y-[40px] opacity-0 scale-95 pointer-events-none";
 
   return (
     <div className={`fixed inset-0 z-[100] bg-[#1c1c1e] text-white overflow-hidden transition-all duration-500 cubic-bezier(0.32, 0.72, 0, 1) flex flex-col ${containerClass}`}>
       
-      {/* 1. Dynamic Background Layer */}
+      {/* --- BACKGROUND LAYER --- */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-         <div className="absolute inset-0 bg-[#1c1c1e]" />
+         {/* Solid Base */}
+         <div className="absolute inset-0 bg-[#212121]" />
+         
+         {/* Dynamic Blobs */}
          {picUrl && (
-            <>
-                {/* Layer 2: Animated Breathing Color Blob */}
-                <div className="absolute inset-0 flex items-center justify-center opacity-60">
-                    <img 
-                        src={picUrl} 
-                        className={`w-[120%] h-[120%] object-cover saturate-[2] ${blurClass} ${enableMotion ? 'animate-pulse-slow' : ''}`} 
-                        alt=""
-                    />
-                </div>
-                <div className="absolute inset-0 opacity-[0.03] bg-[url('https://grainy-gradients.vercel.app/noise.svg')]"></div>
-            </>
+            <div className={`absolute inset-0 transition-opacity duration-1000 ${enableMotion ? 'opacity-100' : 'opacity-40'}`}>
+                {/* Primary Blob */}
+                <div className="absolute top-[-20%] left-[-20%] w-[80%] h-[80%] rounded-full opacity-40 blur-[120px] mix-blend-screen animate-blob"
+                     style={{ 
+                         backgroundImage: `url(${picUrl})`, 
+                         backgroundSize: 'cover' 
+                     }} 
+                />
+                {/* Secondary Blob */}
+                <div className="absolute bottom-[-20%] right-[-20%] w-[80%] h-[80%] rounded-full opacity-30 blur-[120px] mix-blend-screen animate-blob animation-delay-2000"
+                     style={{ 
+                         backgroundImage: `url(${picUrl})`, 
+                         backgroundSize: 'cover' 
+                     }} 
+                />
+                <div className="absolute inset-0 bg-black/30 backdrop-blur-[60px]" />
+            </div>
          )}
-         <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/60" />
       </div>
 
-      {/* 2. Header (Draggable handle area) */}
-      <div className="relative z-10 flex items-center justify-between pt-10 pb-6 px-8">
-        <button 
-          onClick={onClose} 
-          className="w-8 h-8 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-colors backdrop-blur-md"
-        >
-          <ChevronDown className="w-5 h-5 text-white" />
-        </button>
-        <div className="w-12 h-1 bg-white/20 rounded-full absolute left-1/2 -translate-x-1/2 top-4"></div>
+      {/* --- HEADER (Drag Handle / Close) --- */}
+      <div className="relative z-20 flex items-center justify-center pt-6 pb-2 shrink-0 md:justify-end md:px-8">
+         <div className="md:hidden w-12 h-1.5 bg-white/20 rounded-full mb-4" onClick={onClose} />
+         <button 
+            onClick={onClose}
+            className="hidden md:flex w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full items-center justify-center backdrop-blur-md transition-colors"
+         >
+             <ChevronDown className="w-6 h-6 text-white" />
+         </button>
       </div>
 
-      {/* 3. Main Content Area */}
-      <div className="relative z-10 flex-1 flex flex-col md:flex-row items-center justify-center px-8 md:px-16 gap-8 md:gap-20 max-w-7xl mx-auto w-full h-[60vh]">
+      {/* --- MAIN CONTENT (Split View) --- */}
+      <div className="relative z-10 flex-1 flex flex-col md:flex-row gap-8 md:gap-16 px-6 md:px-16 pb-8 max-w-[1600px] mx-auto w-full h-full overflow-hidden">
         
-        {/* Album Art Section - Apple Style Scaling */}
-        <div 
-            className={`relative transition-all duration-700 cubic-bezier(0.2, 0.8, 0.2, 1) flex items-center justify-center w-full max-w-[400px] md:max-w-[500px] aspect-square
-            ${showLyrics ? 'md:w-[40%] scale-75 opacity-60 cursor-pointer hover:opacity-100 hover:scale-80' : 'md:w-full'}
-            `} 
-            onClick={() => showLyrics && setShowLyrics(false)}
-        >
-           {/* The Image Container with Dynamic Shadow */}
-           <div className={`relative w-full h-full rounded-xl transition-all duration-700 cubic-bezier(0.2, 0.8, 0.2, 1)
-               ${isPlaying && !showLyrics ? 'scale-100 shadow-[0_20px_50px_rgba(0,0,0,0.5)]' : 'scale-[0.85] shadow-2xl'}
-           `}>
-                {picUrl ? (
-                    <img 
-                        src={picUrl} 
-                        alt={currentTrack.name} 
-                        className="w-full h-full object-cover rounded-xl select-none"
-                    />
-                ) : (
-                    <div className="w-full h-full bg-white/5 rounded-xl flex items-center justify-center border border-white/10">
-                        <Music className="w-32 h-32 text-white/10" />
+        {/* LEFT COLUMN: Art & Controls */}
+        <div className="flex flex-col justify-center w-full md:w-[45%] lg:w-[40%] shrink-0 gap-8 md:gap-10 h-full max-h-[90vh]">
+            
+            {/* Album Art */}
+            <div className="w-full aspect-square max-w-[350px] md:max-w-[480px] mx-auto md:mx-0 relative group">
+                <div className={`relative w-full h-full rounded-xl transition-all duration-700 ease-out shadow-[0_20px_60px_-10px_rgba(0,0,0,0.6)]
+                    ${isPlaying ? 'scale-100' : 'scale-90 opacity-90'}
+                `}>
+                    {picUrl ? (
+                        <img 
+                            src={picUrl} 
+                            alt={currentTrack.name} 
+                            className="w-full h-full object-cover rounded-xl select-none"
+                        />
+                    ) : (
+                        <div className="w-full h-full bg-white/5 rounded-xl border border-white/10" />
+                    )}
+                    {/* Gloss Reflection */}
+                    <div className="absolute inset-0 rounded-xl bg-gradient-to-tr from-white/10 via-transparent to-transparent pointer-events-none border border-white/5" />
+                </div>
+            </div>
+
+            {/* Meta & Controls Wrapper */}
+            <div className="flex flex-col gap-6 px-2">
+                {/* Meta */}
+                <div className="flex items-end justify-between">
+                    <div className="flex flex-col gap-1 overflow-hidden mr-4">
+                        <h2 className="text-2xl md:text-3xl font-bold truncate text-white leading-tight">
+                            {currentTrack.name}
+                        </h2>
+                        <button className="text-lg md:text-xl text-white/60 truncate font-medium hover:text-white/90 hover:underline text-left transition-colors">
+                            {artistName}
+                        </button>
                     </div>
-                )}
-                {/* Glossy reflection effect */}
-                <div className="absolute inset-0 rounded-xl bg-gradient-to-tr from-white/10 to-transparent pointer-events-none border border-white/5"></div>
-           </div>
+                    <div className="flex gap-2 shrink-0">
+                         <button className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white/80 transition-colors">
+                             <MoreHorizontal className="w-5 h-5" />
+                         </button>
+                    </div>
+                </div>
+
+                {/* Progress Bar (Apple Style) */}
+                <div className="group w-full py-2 cursor-pointer relative"
+                     onMouseDown={() => setIsScrubbing(true)}
+                     onMouseUp={() => { setIsScrubbing(false); onSeek(scrubValue); }}
+                     onMouseLeave={() => setIsScrubbing(false)}
+                     onMouseMove={(e) => {
+                         if (isScrubbing) {
+                             const rect = e.currentTarget.getBoundingClientRect();
+                             const percent = Math.min(Math.max(0, e.clientX - rect.left), rect.width) / rect.width;
+                             setScrubValue(percent * duration);
+                         }
+                     }}
+                >
+                    {/* Track Background */}
+                    <div className="w-full h-[3px] bg-white/20 rounded-full overflow-hidden group-hover:h-[5px] transition-all duration-300">
+                        {/* Fill */}
+                        <div 
+                            className="h-full bg-white/80 rounded-full transition-all duration-100 ease-linear"
+                            style={{ width: `${(effectiveProgress / (duration || 1)) * 100}%` }}
+                        />
+                    </div>
+                    {/* Range Input (Invisible overlay for interaction) */}
+                    <input
+                        type="range"
+                        min="0"
+                        max={duration || 100}
+                        value={effectiveProgress}
+                        onChange={(e) => {
+                            setScrubValue(Number(e.target.value));
+                            if (!isScrubbing) onSeek(Number(e.target.value));
+                        }}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                    
+                    {/* Time Tooltips */}
+                    <div className="flex justify-between text-xs font-medium text-white/40 mt-2 select-none">
+                        <span>{formatTime(effectiveProgress)}</span>
+                        <span>-{formatTime(duration - effectiveProgress)}</span>
+                    </div>
+                </div>
+
+                {/* Main Controls */}
+                <div className="flex items-center justify-center gap-10 md:gap-14">
+                    <button className="text-white/40 hover:text-white transition-colors">
+                        <Shuffle className="w-6 h-6" />
+                    </button>
+                    <button onClick={onPrev} className="text-white hover:text-white/60 transition-colors active:scale-95">
+                        <SkipBack className="w-10 h-10 fill-current" />
+                    </button>
+                    <button 
+                        onClick={onTogglePlay}
+                        className="w-20 h-20 rounded-full flex items-center justify-center bg-white/20 hover:bg-white/30 backdrop-blur-md hover:scale-105 active:scale-95 transition-all shadow-lg"
+                    >
+                        {isPlaying ? (
+                            <Pause className="w-10 h-10 fill-white" />
+                        ) : (
+                            <Play className="w-10 h-10 fill-white ml-1" />
+                        )}
+                    </button>
+                    <button onClick={onNext} className="text-white hover:text-white/60 transition-colors active:scale-95">
+                        <SkipForward className="w-10 h-10 fill-current" />
+                    </button>
+                    <button className="text-white/40 hover:text-white transition-colors">
+                        <Repeat className="w-6 h-6" />
+                    </button>
+                </div>
+
+                {/* Volume Slider */}
+                <div className="flex items-center gap-4 mt-2 px-2">
+                    <Volume2 className="w-4 h-4 text-white/50" />
+                    <div className="flex-1 h-1 bg-white/20 rounded-full relative group cursor-pointer">
+                        <div 
+                            className="absolute h-full bg-white rounded-full group-hover:bg-white/90"
+                            style={{ width: `${volume * 100}%` }}
+                        />
+                        <input 
+                            type="range" min="0" max="1" step="0.01" value={volume}
+                            onChange={(e) => onVolumeChange(Number(e.target.value))}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                    </div>
+                    <Volume2 className="w-5 h-5 text-white/80" />
+                </div>
+            </div>
         </div>
 
-        {/* Lyrics Section - Immersive */}
-        {showLyrics && (
-           <div 
+        {/* RIGHT COLUMN: Lyrics */}
+        <div className="flex-1 h-full overflow-hidden relative mask-image-lyrics mt-8 md:mt-0">
+            <div 
                 ref={lyricContainerRef}
-                className="w-full md:w-[60%] h-full overflow-y-auto no-scrollbar flex flex-col gap-6 text-left px-4 py-[50%] md:py-32 transition-all duration-500 select-none"
-                style={{
-                    // Use pixel-based mask for consistent fade out regardless of container height
-                    maskImage: 'linear-gradient(to bottom, transparent 0px, black 120px, black calc(100% - 120px), transparent 100%)',
-                    WebkitMaskImage: 'linear-gradient(to bottom, transparent 0px, black 120px, black calc(100% - 120px), transparent 100%)'
-                }}
-           >
-              {isLoadingLyrics ? (
-                  <div className="flex items-center justify-center h-full">
-                      <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  </div>
-              ) : lyrics.map((line, i) => (
-                  <p 
-                    key={i} 
-                    className={`transition-all duration-500 ease-out cursor-pointer origin-left
-                        ${i === activeLyricIndex 
-                            ? `${getLyricActiveSize()} text-white font-bold opacity-100 scale-105 filter-none shadow-lg` 
-                            : `${getLyricInactiveSize()} text-white/40 font-medium blur-[0.5px] hover:text-white/70 hover:blur-none`
-                        }
-                    `}
-                    onClick={() => onSeek(line.time)}
-                  >
-                      {line.text}
-                  </p>
-              ))}
-           </div>
-        )}
-      </div>
-
-      {/* 4. Controls Section */}
-      <div className="relative z-10 w-full max-w-4xl mx-auto px-8 md:px-12 pb-12 pt-8">
-        
-        {/* Track Info & Toggles */}
-        <div className="flex items-center justify-between mb-8">
-           <div className="flex flex-col gap-1 overflow-hidden pr-4">
-             <h2 className="text-2xl md:text-3xl font-bold truncate leading-tight">{currentTrack.name}</h2>
-             <p className="text-lg md:text-xl text-white/60 truncate font-medium cursor-pointer hover:underline hover:text-white/80 transition-colors">
-                {artistName}
-                <span className="mx-2 opacity-50">•</span>
-                <span className="text-xs bg-white/20 px-1.5 py-0.5 rounded text-white/80">Lossless</span>
-             </p>
-           </div>
-           
-           <div className="flex items-center gap-3 shrink-0">
-               <button 
-                onClick={() => setShowLyrics(!showLyrics)}
-                className={`p-2.5 rounded-full backdrop-blur-md transition-all duration-300 ${showLyrics ? 'bg-white text-rose-500 shadow-lg scale-110' : 'bg-white/10 text-white hover:bg-white/20'}`}
-               >
-                 <Quote className="w-5 h-5 fill-current" />
-               </button>
-               <button className="p-2.5 bg-white/10 rounded-full hover:bg-white/20 transition-colors backdrop-blur-md">
-                 <MoreHorizontal className="w-5 h-5" />
-               </button>
-           </div>
+                className="h-full overflow-y-auto no-scrollbar scroll-smooth px-2 md:px-8 pb-[50vh] pt-[10vh]"
+            >
+                {isLoadingLyrics ? (
+                    <div className="flex flex-col items-center justify-center h-64 opacity-50 gap-4">
+                         <div className="w-10 h-10 border-4 border-white/20 border-t-white rounded-full animate-spin" />
+                         <p className="text-sm">加载歌词中...</p>
+                    </div>
+                ) : lyrics.map((line, i) => (
+                    <div 
+                        key={i} 
+                        onClick={() => onSeek(line.time)}
+                        className={`
+                            py-4 md:py-5 transition-all duration-700 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] 
+                            origin-left cursor-pointer select-none
+                            ${i === activeLyricIndex 
+                                ? `opacity-100 ${getLyricSizeClass()} font-bold text-white scale-100 blur-0` 
+                                : `opacity-40 text-3xl font-medium text-white/80 scale-95 blur-[0.8px] hover:opacity-80 hover:blur-0`
+                            }
+                        `}
+                    >
+                        {line.text}
+                    </div>
+                ))}
+            </div>
         </div>
 
-        {/* Apple Style Progress Bar */}
-        <div className="mb-10 group relative h-4 flex items-center">
-           {/* Background Track */}
-           <div className="absolute w-full h-1 bg-white/20 rounded-full overflow-hidden group-hover:h-2 transition-all duration-300">
-               {/* Progress Fill */}
-               <div 
-                  className="h-full bg-white/80 rounded-full relative" 
-                  style={{ width: `${(progress / (duration || 1)) * 100}%` }}
-               ></div>
-           </div>
-           
-           {/* Input slider (Invisible but interactive) */}
-           <input
-              type="range"
-              min="0"
-              max={duration || 100}
-              value={progress}
-              onChange={(e) => onSeek(Number(e.target.value))}
-              className="absolute w-full h-full opacity-0 cursor-pointer z-10"
-           />
-
-            {/* Thumb (Only visible on group hover) */}
-           <div 
-             className="absolute w-3 h-3 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none"
-             style={{ left: `${(progress / (duration || 1)) * 100}%`, transform: 'translateX(-50%)' }}
-           />
-
-           <div className="absolute top-4 w-full flex justify-between text-xs font-medium text-white/40 group-hover:text-white/60 transition-colors mt-1">
-              <span>{formatTime(progress)}</span>
-              <span>{formatTime(duration)}</span>
-           </div>
-        </div>
-
-        {/* Playback Controls */}
-        <div className="flex items-center justify-between mb-8">
-           <button className="text-white/40 hover:text-white transition-colors hover:bg-white/10 p-2 rounded-full">
-              <Shuffle className="w-6 h-6" />
-           </button>
-           
-           <div className="flex items-center gap-8 md:gap-12">
-              <button onClick={onPrev} className="text-white hover:text-white/60 transition-colors active:scale-90 transform duration-150">
-                <SkipBack className="w-10 h-10 fill-current" />
-              </button>
-              
-              <button 
-                onClick={onTogglePlay}
-                className="w-20 h-20 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-full flex items-center justify-center text-white transition-all hover:scale-110 active:scale-95 shadow-lg"
-              >
-                 {isPlaying ? (
-                    <Pause className="w-10 h-10 fill-current" />
-                 ) : (
-                    <Play className="w-10 h-10 fill-current ml-1" />
-                 )}
-              </button>
-              
-              <button onClick={onNext} className="text-white hover:text-white/60 transition-colors active:scale-90 transform duration-150">
-                <SkipForward className="w-10 h-10 fill-current" />
-              </button>
-           </div>
-
-           <button className="text-white/40 hover:text-white transition-colors hover:bg-white/10 p-2 rounded-full">
-              <Repeat className="w-6 h-6" />
-           </button>
-        </div>
-
-        {/* Volume */}
-        <div className="flex items-center gap-4 px-4 md:px-12 group">
-           <Volume2 className="w-4 h-4 text-white/50" />
-           <div className="flex-1 h-1 bg-white/20 rounded-full relative overflow-hidden">
-             <div 
-                className="h-full bg-white rounded-full"
-                style={{ width: `${volume * 100}%` }}
-             />
-             <input 
-                type="range"
-                min="0"
-                max="1"
-                step="0.01"
-                value={volume}
-                onChange={(e) => onVolumeChange(Number(e.target.value))}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-             />
-           </div>
-           <Volume2 className="w-5 h-5 text-white/80" />
-        </div>
       </div>
 
       <style>{`
-        .animate-pulse-slow {
-            animation: pulse-slow 8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        .animate-blob {
+            animation: blob 20s infinite alternate cubic-bezier(0.4, 0, 0.2, 1);
         }
-        @keyframes pulse-slow {
-            0%, 100% { opacity: 0.5; transform: scale(1.1); }
-            50% { opacity: 0.8; transform: scale(1.2); }
+        .animation-delay-2000 {
+            animation-delay: 2s;
         }
-        .cubic-bezier {
-            transition-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+        @keyframes blob {
+            0% { transform: translate(0px, 0px) scale(1); }
+            33% { transform: translate(30px, -50px) scale(1.1); }
+            66% { transform: translate(-20px, 20px) scale(0.9); }
+            100% { transform: translate(0px, 0px) scale(1); }
+        }
+        .mask-image-lyrics {
+            mask-image: linear-gradient(to bottom, 
+                transparent 0%, 
+                black 15%, 
+                black 85%, 
+                transparent 100%
+            );
+            -webkit-mask-image: linear-gradient(to bottom, 
+                transparent 0%, 
+                black 15%, 
+                black 85%, 
+                transparent 100%
+            );
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
         }
       `}</style>
     </div>
