@@ -26,9 +26,10 @@ export const PlayerBar = () => {
 
   const [isFullScreen, setIsFullScreen] = useState(false);
 
+  // FIX: Added fixed positioning classes to prevent flexbox layout breakage
   if (!currentTrack) {
     return (
-      <div className="h-24 w-full glass border-t border-white/5 flex items-center justify-center text-white/30 text-sm">
+      <div className="fixed bottom-0 left-0 z-50 h-24 w-full glass border-t border-white/5 flex items-center justify-center text-white/30 text-sm">
         选择一首歌曲开始播放
       </div>
     );
